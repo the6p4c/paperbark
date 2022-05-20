@@ -69,23 +69,23 @@ impl Region {
         Self(HashSet::new())
     }
 
-    pub fn add_square(&mut self, square: Square) {
-        self.0.insert(square);
+    pub fn add_square(&mut self, square: Square) -> bool {
+        self.0.insert(square)
     }
 
-    pub fn remove_square(&mut self, square: Square) {
-        self.0.remove(&square);
+    pub fn remove_square(&mut self, square: Square) -> bool {
+        self.0.remove(&square)
     }
 
     pub fn squares(&self) -> impl Iterator<Item = Square> + '_ {
         self.0.iter().copied()
     }
 
-    fn size(&self) -> usize {
+    pub fn size(&self) -> usize {
         self.0.len()
     }
 
-    fn word(&self, board: &Board) -> String {
+    pub fn word(&self, board: &Board) -> String {
         let mut squares = self.0.iter().copied().collect::<Vec<_>>();
         squares.sort_unstable_by(|a, b| {
             let x_ordering = a.x.cmp(&b.x);
@@ -224,6 +224,18 @@ impl<'a, D> Game<'a, D> {
 
     pub fn regions(&self) -> impl Iterator<Item = &(Region, D)> {
         self.regions.iter()
+    }
+
+    pub fn is_square_free(&self, square: Square) -> bool {
+        self.regions
+            .iter()
+            .flat_map(|(region, _)| region.squares())
+            .find(|other| square == *other)
+            .is_none()
+    }
+
+    pub fn board(&self) -> &Board {
+        self.board
     }
 }
 
