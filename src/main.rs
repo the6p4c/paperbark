@@ -1,6 +1,5 @@
 use itertools::izip;
 use serde::Deserialize;
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, Read};
 use std::iter;
@@ -73,7 +72,7 @@ fn main() -> io::Result<()> {
         max_length: game_data.max_size,
         dictionary,
     };
-    let mut game = Game::<Color>::new(&board, &ruleset);
+    let game = Game::<Color>::new(&board, &ruleset);
 
     ui::run(game)
 }

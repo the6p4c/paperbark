@@ -234,11 +234,13 @@ impl<'a, D> Game<'a, D> {
     }
 
     pub fn is_square_free(&self, square: Square) -> bool {
-        self.regions
+        let is_square_occupied = self
+            .regions
             .iter()
             .flat_map(|(region, _)| region.squares())
-            .find(|other| square == *other)
-            .is_none()
+            .any(|other| square == other);
+
+        !is_square_occupied
     }
 
     pub fn board(&self) -> &Board {
