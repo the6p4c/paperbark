@@ -144,6 +144,7 @@ impl Region {
 pub struct Ruleset {
     pub min_length: usize,
     pub max_length: usize,
+    pub dictionary: HashSet<String>,
 }
 
 pub struct CheckedRegion<'a>(&'a Region);
@@ -196,7 +197,9 @@ impl<'a, D> Game<'a, D> {
         }
 
         let word = region.word(self.board);
-        // TODO: check if word is in ruleset's dictionary
+        if !self.ruleset.dictionary.contains(&word) {
+            return Err(CheckRegionError::NotInDictionary);
+        }
 
         Ok(CheckedRegion(region))
     }
