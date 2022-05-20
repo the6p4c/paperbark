@@ -190,7 +190,14 @@ impl<'a, D> Game<'a, D> {
             return Err(CheckRegionError::OutOfBounds);
         }
 
-        // TODO: check if region overlaps another
+        let is_overlapping = self
+            .regions
+            .iter()
+            .flat_map(|(region, _)| region.squares())
+            .any(|square| region.0.contains(&square));
+        if is_overlapping {
+            return Err(CheckRegionError::Overlapping);
+        }
 
         if !region.is_contiguous() {
             return Err(CheckRegionError::NotContiguous);

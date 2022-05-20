@@ -5,6 +5,7 @@ use crossterm::terminal::{
 };
 use std::collections::HashMap;
 use std::io;
+use std::time::Duration;
 use tui::backend::Backend;
 use tui::backend::CrosstermBackend;
 use tui::buffer::Buffer;
@@ -13,7 +14,6 @@ use tui::style::{Color, Modifier, Style};
 use tui::widgets::{Paragraph, Widget};
 use tui::Frame;
 use tui::Terminal;
-use std::time::Duration;
 
 use crate::game::*;
 
@@ -123,7 +123,6 @@ impl<'a, 'b, 'c> Widget for GameWidget<'a, 'b, 'c> {
             .render(chunk_status, buf);
     }
 }
-
 
 struct App<'a> {
     game: Game<'a, Color>,
