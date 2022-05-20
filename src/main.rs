@@ -1,8 +1,12 @@
+use chrono::{Date, TimeZone, Utc};
 use itertools::izip;
 use serde::Deserialize;
-use std::fs::File;
-use std::io::{self, Read};
+use std::error::Error;
+use std::fs;
+use std::io;
 use std::iter;
+use std::path::Path;
+use structopt::StructOpt;
 use tui::style::Color;
 
 mod game;
@@ -24,34 +28,68 @@ struct GameData {
     words: Vec<String>,
 }
 
-fn main() -> io::Result<()> {
-    let args = std::env::args().collect::<Vec<_>>();
-    let dictionary_data: DictionaryData = {
-        let mut file = File::open(&args[1])?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
+struct OfficialData {
+    dictionary_data: DictionaryData,
+    game_data: GameData,
+}
 
-        serde_json::from_str(&contents).unwrap()
-    };
-    let game_data: GameData = {
-        let mut file = File::open(&args[2])?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
+impl OfficialData {
+    fn from_paths<P1: AsRef<Path>, P2: AsRef<Path>>(
+        dictionary_path: P1,
+        game_path: P2,
+    ) -> io::Result<Self> {
+        let dictionary_json = fs::read_to_string(dictionary_path)?;
+        let game_json = fs::read_to_string(game_path)?;
 
-        serde_json::from_str(&contents).unwrap()
-    };
+        Ok(Self::from_json(&dictionary_json, &game_json))
+    }
 
-    let empty_chars = iter::repeat(None)
-        .take(game_data.width * game_data.height)
-        .collect::<Vec<_>>();
+    fn from_web() -> reqwest::Result<Self> {
+        const BASE_URL: &str = "https://www.andrewt.net/puzzles/cell-tower";
 
-    assert_eq!(game_data.regions.len(), game_data.words.len());
-    let chars =
-        izip!(game_data.words, game_data.regions).fold(empty_chars, |mut chars, (word, region)| {
+        let epoch = Utc.ymd(2022, 05, 06).and_hms(0, 0, 0);
+        let puzzle_id = Utc::now().signed_duration_since(epoch).num_days() + 1;
+
+        let client = reqwest::blocking::Client::new();
+        let dictionary_json = client
+            .get(format!("{BASE_URL}/assets/words.json"))
+            .send()?
+            .text()?;
+        let game_json = client
+            .get(format!("{BASE_URL}/puzzles/{puzzle_id}.json"))
+            .send()?
+            .text()?;
+
+        Ok(Self::from_json(&dictionary_json, &game_json))
+    }
+
+    fn from_json(dictionary_json: &str, game_json: &str) -> Self {
+        let dictionary_data = serde_json::from_str(dictionary_json).unwrap();
+        let game_data = serde_json::from_str(game_json).unwrap();
+
+        Self {
+            dictionary_data,
+            game_data,
+        }
+    }
+
+    fn board(&self) -> Board {
+        let GameData {
+            width,
+            height,
+            regions,
+            words,
+            ..
+        } = &self.game_data;
+
+        let empty_chars = iter::repeat(None).take(width * height).collect::<Vec<_>>();
+
+        assert_eq!(regions.len(), words.len());
+        let chars = izip!(words, regions).fold(empty_chars, |mut chars, (word, region)| {
             assert_eq!(word.len(), region.len());
 
             for (c, (x, y)) in izip!(word.chars(), region) {
-                let char_slot = &mut chars[y * game_data.width + x];
+                let char_slot = &mut chars[y * width + x];
                 assert_eq!(*char_slot, None);
                 *char_slot = Some(c.to_uppercase().next().unwrap());
             }
@@ -59,20 +97,45 @@ fn main() -> io::Result<()> {
             chars
         });
 
-    let chars = chars.into_iter().map(Option::unwrap).collect::<String>();
-    let board = Board::new(game_data.width, chars);
+        let chars = chars.into_iter().map(Option::unwrap).collect::<String>();
 
-    let dictionary = dictionary_data
-        .0
-        .into_iter()
-        .map(|w| w.to_uppercase())
-        .collect();
-    let ruleset = Ruleset {
-        min_length: game_data.min_size,
-        max_length: game_data.max_size,
-        dictionary,
+        Board::new(*width, chars)
+    }
+
+    fn ruleset(&self) -> Ruleset {
+        let dictionary = self
+            .dictionary_data
+            .0
+            .iter()
+            .map(|w| w.to_uppercase())
+            .collect();
+
+        Ruleset {
+            min_length: self.game_data.min_size,
+            max_length: self.game_data.max_size,
+            dictionary,
+        }
+    }
+}
+
+#[derive(StructOpt)]
+#[structopt(about = "a terminal-based clone of the cell tower puzzle game")]
+enum Paperbark {
+    Today,
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let opt = Paperbark::from_args();
+    let game = match opt {
+        Paperbark::Today => {
+            let official_data = OfficialData::from_web()?;
+            let board = official_data.board();
+            let ruleset = official_data.ruleset();
+
+            let game = Game::<Color>::new(&board, &ruleset);
+            ui::run(game)?;
+        }
     };
-    let game = Game::<Color>::new(&board, &ruleset);
 
-    ui::run(game)
+    Ok(())
 }
