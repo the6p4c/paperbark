@@ -13,6 +13,7 @@ use tui::style::{Color, Modifier, Style};
 use tui::widgets::{Paragraph, Widget};
 use tui::Frame;
 use tui::Terminal;
+use std::time::Duration;
 
 use crate::game::*;
 
@@ -44,11 +45,11 @@ impl<'a, 'b, 'c> Widget for GameWidget<'a, 'b, 'c> {
         let game_width = game.board().width();
         let game_height = game.board().height();
 
-        assert!(chunk_board.width >= game_width as u16);
-        assert!(chunk_board.height >= game_height as u16);
+        assert!(chunk_board.width >= game_width as u16 * 2);
+        assert!(chunk_board.height >= game_height as u16 * 2);
 
-        let top_left_x = chunk_board.x + (chunk_board.width - game_width as u16) / 2;
-        let top_left_y = chunk_board.y + (chunk_board.height - game_height as u16) / 2;
+        let top_left_x = chunk_board.x + (chunk_board.width - game_width as u16 * 2) / 2;
+        let top_left_y = chunk_board.y + (chunk_board.height - game_height as u16 * 2) / 2;
 
         let square_to_region_type = game
             .regions()
@@ -70,9 +71,9 @@ impl<'a, 'b, 'c> Widget for GameWidget<'a, 'b, 'c> {
                 let c = game.board().get(square);
                 let region_type = square_to_region_type.get(&square);
 
-                let fg = match region_type {
-                    Some(RegionType::Committed(color)) => *color,
-                    _ => Color::Reset,
+                let (fg, bg) = match region_type {
+                    Some(RegionType::Committed(color)) => (*color, Color::DarkGray),
+                    _ => (Color::Reset, Color::Reset),
                 };
                 let modifier_cursor = if x == cursor.x && y == cursor.y {
                     Modifier::UNDERLINED
@@ -85,10 +86,11 @@ impl<'a, 'b, 'c> Widget for GameWidget<'a, 'b, 'c> {
                 };
                 let style = Style::default()
                     .fg(fg)
+                    .bg(bg)
                     .add_modifier(modifier_cursor | modifier_temp_region);
 
-                let buf_x = top_left_x + x as u16;
-                let buf_y = top_left_y + y as u16;
+                let buf_x = top_left_x + x as u16 * 2;
+                let buf_y = top_left_y + y as u16 * 2;
                 let cell = buf.get_mut(buf_x, buf_y);
                 cell.set_char(c);
                 cell.set_style(style);
@@ -122,8 +124,11 @@ impl<'a, 'b, 'c> Widget for GameWidget<'a, 'b, 'c> {
     }
 }
 
+
 struct App<'a> {
     game: Game<'a, Color>,
+    colors: Vec<Color>,
+    all_colors: Vec<Color>,
     cursor: Square,
     temp_region: Region,
     running: bool,
@@ -131,8 +136,19 @@ struct App<'a> {
 
 impl<'a> App<'a> {
     fn new(game: Game<'a, Color>) -> Self {
+        let all_colors = vec![
+            Color::Red,
+            Color::Green,
+            Color::Yellow,
+            Color::Blue,
+            Color::Magenta,
+            Color::Cyan,
+        ];
+
         Self {
             game,
+            colors: all_colors.clone(),
+            all_colors,
             cursor: (0, 0).into(),
             temp_region: Region::new(),
             running: true,
@@ -149,6 +165,8 @@ impl<'a> App<'a> {
                 KeyCode::Char('d') | KeyCode::Right => self.cursor_right(),
                 KeyCode::Char(' ') => self.select(),
                 KeyCode::Enter => self.add(),
+                KeyCode::Delete => self.remove(),
+                KeyCode::Insert => self.remove_and_add(),
                 _ => {}
             },
             _ => {}
@@ -207,8 +225,29 @@ impl<'a> App<'a> {
 
     fn add(&mut self) {
         if let Ok(checked_region) = self.game.check_region(&self.temp_region) {
-            self.game.add_region(checked_region, Color::Red);
+            let color = self.colors.pop().unwrap();
+            if self.colors.is_empty() {
+                self.colors = self.all_colors.clone();
+            }
+
+            self.game.add_region(checked_region, color);
             self.temp_region = Region::new();
+        }
+    }
+
+    fn remove(&mut self) {
+        // try removing the committed region under the cursor, but if there is none, reset the
+        // uncommitted region
+        if self.game.remove_region(self.cursor).is_none() {
+            self.temp_region = Region::new();
+        }
+    }
+
+    fn remove_and_add(&mut self) {
+        if let Some((region, _)) = self.game.remove_region(self.cursor) {
+            for square in region.squares() {
+                self.temp_region.add_square(square);
+            }
         }
     }
 }
@@ -221,10 +260,11 @@ pub fn run(game: Game<Color>) -> io::Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     let mut app = App::new(game);
+
     while app.is_running() {
         terminal.draw(|f| app.draw(f))?;
 
-        if event::poll(std::time::Duration::from_secs(0))? {
+        if event::poll(Duration::from_millis(100))? {
             app.on_event(event::read()?);
         }
     }

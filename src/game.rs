@@ -210,19 +210,16 @@ impl<'a, D> Game<'a, D> {
         self.regions.push((region, data));
     }
 
-    fn find_region(&self, s: Square) -> Option<&(Region, D)> {
-        self.regions
-            .iter()
-            .find(|(region, _)| region.0.contains(&s))
-    }
-
-    fn remove_region(&mut self, region: &Region) {
+    pub fn remove_region(&mut self, square: Square) -> Option<(Region, D)> {
         let index = self
             .regions
             .iter()
-            .position(|(other, _)| region == other)
-            .unwrap();
-        self.regions.swap_remove(index);
+            .position(|(region, _)| region.0.contains(&square));
+
+        match index {
+            Some(index) => Some(self.regions.swap_remove(index)),
+            None => None,
+        }
     }
 
     pub fn regions(&self) -> impl Iterator<Item = &(Region, D)> {
