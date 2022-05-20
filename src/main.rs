@@ -6,7 +6,7 @@ use game::*;
 const SGR_RESET: &str = "\x1b[0m";
 const SGR_RED: &str = "\x1b[31m";
 const SGR_GREEN: &str = "\x1b[32m";
-const SGR_BLUE: &str = "\x1b[33m";
+const SGR_BLUE: &str = "\x1b[34m";
 
 enum Color {
     Red,
@@ -69,6 +69,15 @@ fn main() {
 
     let checked_region = game.check_region(&region).unwrap();
     game.add_region(checked_region, Color::Green);
+
+    let mut region = Region::new();
+    region.add_square((3, 3).into());
+    region.add_square((4, 3).into());
+    region.add_square((5, 3).into());
+    region.add_square((5, 4).into());
+
+    let checked_region = game.check_region(&region).unwrap();
+    game.add_region(checked_region, Color::Blue);
 
     let square_to_color = game
         .regions()
