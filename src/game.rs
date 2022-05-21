@@ -1,3 +1,4 @@
+use itertools::iproduct;
 use std::collections::HashSet;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -172,6 +173,21 @@ impl<'a, D> Game<'a, D> {
             ruleset,
             regions: vec![],
         }
+    }
+
+    pub fn is_complete(&self) -> bool {
+        let all_squares = iproduct!(0..self.board.width(), 0..self.board.height())
+            .map(|s| s.into())
+            .collect::<HashSet<_>>();
+        let used_squares = self.regions.iter().map(|(region, _)| &region.0).fold(
+            HashSet::new(),
+            |mut used_squares, region| {
+                used_squares.extend(region.iter().copied());
+                used_squares
+            },
+        );
+
+        all_squares.difference(&used_squares).count() == 0
     }
 
     pub fn check_region<'b>(

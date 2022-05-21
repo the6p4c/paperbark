@@ -3,6 +3,7 @@ use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
+use itertools::{chain, iproduct};
 use std::collections::HashMap;
 use std::io;
 use std::time::Duration;
@@ -39,11 +40,11 @@ impl GameWidget<'_, '_, '_> {
         let game_width = game.board().width();
         let game_height = game.board().height();
 
-        assert!(area.width >= game_width as u16 * 2);
-        assert!(area.height >= game_height as u16 * 2);
+        assert!(area.width >= game_width as u16 + 2);
+        assert!(area.height >= game_height as u16 + 2);
 
-        let top_left_x = area.x + (area.width - game_width as u16) / 2;
-        let top_left_y = area.y + (area.height - game_height as u16) / 2;
+        let top_left_x = area.x + (area.width - game_width as u16 + 2) / 2;
+        let top_left_y = area.y + (area.height - game_height as u16 + 2) / 2;
 
         let square_to_region_type = game
             .regions()
@@ -83,10 +84,25 @@ impl GameWidget<'_, '_, '_> {
                     .bg(bg)
                     .add_modifier(modifier_cursor | modifier_uncommitted);
 
+                let buf_x = top_left_x + x as u16 + 1;
+                let buf_y = top_left_y + y as u16 + 1;
+                let cell = buf.get_mut(buf_x, buf_y);
+                cell.set_char(c);
+                cell.set_style(style);
+            }
+        }
+
+        if game.is_complete() {
+            let style = Style::default().bg(Color::Green);
+            let points = chain!(
+                iproduct!(0..(game_width + 2), [0, game_height + 1]),
+                iproduct!([0, game_width + 1], 0..(game_height + 2)),
+            );
+            for (x, y) in points {
                 let buf_x = top_left_x + x as u16;
                 let buf_y = top_left_y + y as u16;
                 let cell = buf.get_mut(buf_x, buf_y);
-                cell.set_char(c);
+                cell.set_char(' ');
                 cell.set_style(style);
             }
         }
