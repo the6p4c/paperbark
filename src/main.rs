@@ -45,7 +45,7 @@ impl OfficialData {
     }
 
     fn from_web_today() -> reqwest::Result<Self> {
-        let epoch = Utc.ymd(2022, 05, 06).and_hms(0, 0, 0);
+        let epoch = Utc.ymd(2022, 5, 6).and_hms(0, 0, 0);
         let puzzle_id = Utc::now().signed_duration_since(epoch).num_days() + 1;
 
         Self::from_web(puzzle_id)

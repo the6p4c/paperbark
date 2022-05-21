@@ -299,8 +299,6 @@ mod tests {
 
     #[test]
     fn region_size() {
-        let board = board();
-
         let region = region![];
         assert_eq!(region.size(), 0);
 
