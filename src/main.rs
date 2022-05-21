@@ -131,24 +131,19 @@ enum Paperbark {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let opt = Paperbark::from_args();
-    match opt {
+    let (board, ruleset) = match opt {
         Paperbark::Today => {
             let official_data = OfficialData::from_web_today()?;
-            let board = official_data.board();
-            let ruleset = official_data.ruleset();
-
-            let game = Game::<Color>::new(&board, &ruleset);
-            ui::run(game)?;
+            (official_data.board(), official_data.ruleset())
         }
         Paperbark::Day { puzzle_id } => {
             let official_data = OfficialData::from_web(puzzle_id as i64)?;
-            let board = official_data.board();
-            let ruleset = official_data.ruleset();
-
-            let game = Game::<Color>::new(&board, &ruleset);
-            ui::run(game)?;
+            (official_data.board(), official_data.ruleset())
         }
-    }
+    };
+
+    let game = Game::<Color>::new(&board, &ruleset);
+    ui::run(game)?;
 
     Ok(())
 }

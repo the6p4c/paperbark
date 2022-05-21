@@ -9,15 +9,14 @@ pub struct Square {
 
 impl Square {
     fn is_neighbour_of(&self, other: Square) -> bool {
-        let delta = |a: usize, b: usize| a.max(b) - a.min(b);
+        let abs_diff = |a: usize, b: usize| a.max(b) - a.min(b);
 
-        let is_horizontal = self.y == other.y;
-        let dx = delta(self.x, other.x);
+        // manhattan distance
+        let dx = abs_diff(self.x, other.x);
+        let dy = abs_diff(self.y, other.y);
+        let dist = dx + dy;
 
-        let is_vertical = self.x == other.x;
-        let dy = delta(self.y, other.y);
-
-        (is_horizontal && dx == 1) || (is_vertical && dy == 1)
+        dist == 1
     }
 }
 
